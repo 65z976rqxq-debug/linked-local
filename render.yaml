@@ -1,0 +1,23 @@
+# Sample Render service manifest. Adapt names and settings as needed.
+# See: https://render.com/docs/render-manifest
+
+services:
+  - type: web
+    name: wellness-frontend
+    env: docker
+    plan: free
+    repo: "$GIT_REPO"
+    branch: main
+    dockerfilePath: frontend/Dockerfile.prod
+    buildCommand: ""
+    startCommand: ""
+
+  - type: web
+    name: wellness-backend
+    env: docker
+    plan: free
+    repo: "$GIT_REPO"
+    branch: main
+    dockerfilePath: local-backend/Dockerfile
+    buildCommand: ""
+    startCommand: ""

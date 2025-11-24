@@ -1,0 +1,8 @@
+DATABASE_URL="postgresql://postgres:postgres@db:5432/wellness?schema=public"
+JWT_SECRET="replace-with-strong-secret"
+OPENAI_API_KEY="sk-..."
+GOOGLE_PLACES_API_KEY="AIza..."
+IMPORTER_CRON="*/30 * * * *"
+IMPORT_LAT=40.7128
+IMPORT_LNG=-74.0060
+FRONTEND_ORIGIN=http://localhost:5173

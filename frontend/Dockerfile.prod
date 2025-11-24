@@ -1,0 +1,23 @@
+### Build stage
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+# Use build arg to set the API base for production (defaults to /api)
+ARG VITE_API_URL=/api
+ENV VITE_API_URL=${VITE_API_URL}
+RUN npm run build
+
+### Production stage: nginx serving static files, proxy /api to backend
+FROM nginx:stable-alpine
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy debug helper page (not part of dist) so nginx can serve it at /debug
+COPY debug.html /usr/share/nginx/html/debug.html
+# Remove `crossorigin` attributes that some browsers treat strictly
+# This ensures the built index.html doesn't include `crossorigin` on script tags
+# which can cause asset loading issues in some local setups.
+RUN if [ -f /usr/share/nginx/html/index.html ]; then sed -i 's/ crossorigin//g' /usr/share/nginx/html/index.html || true; fi
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

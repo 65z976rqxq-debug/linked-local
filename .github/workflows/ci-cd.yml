@@ -1,0 +1,48 @@
+name: CI / Build & Deploy
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_TAG: ${{ github.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Build and push backend image
+        run: |
+          docker build -f local-backend/Dockerfile -t ghcr.io/${{ github.repository_owner }}/wellness-backend:${IMAGE_TAG} local-backend
+          docker tag ghcr.io/${{ github.repository_owner }}/wellness-backend:${IMAGE_TAG} ghcr.io/${{ github.repository_owner }}/wellness-backend:latest
+          docker push ghcr.io/${{ github.repository_owner }}/wellness-backend:${IMAGE_TAG}
+          docker push ghcr.io/${{ github.repository_owner }}/wellness-backend:latest
+
+      - name: Build and push frontend-prod image
+        run: |
+          docker build -f frontend/Dockerfile.prod -t ghcr.io/${{ github.repository_owner }}/wellness-frontend:${IMAGE_TAG} frontend
+          docker tag ghcr.io/${{ github.repository_owner }}/wellness-frontend:${IMAGE_TAG} ghcr.io/${{ github.repository_owner }}/wellness-frontend:latest
+          docker push ghcr.io/${{ github.repository_owner }}/wellness-frontend:${IMAGE_TAG}
+          docker push ghcr.io/${{ github.repository_owner }}/wellness-frontend:latest
+
+      - name: Trigger Render deploy (optional)
+        if: ${{ secrets.RENDER_API_KEY && secrets.RENDER_SERVICE_ID }}
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+        run: |
+          echo "Triggering Render deploy for service $RENDER_SERVICE_ID"
+          curl -sSf -X POST https://api.render.com/deploys \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"serviceId":"'"$RENDER_SERVICE_ID"'"}'
