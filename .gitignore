@@ -1,0 +1,4 @@
+# Replace <your-username> and <repo-name> if you chose a different name
+git branch -M main
+git remote add origin https://github.com/<your-username>/wellness-events.git
+git push -u origin main
