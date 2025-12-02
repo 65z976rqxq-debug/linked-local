@@ -10,6 +10,43 @@ permissions:
   packages: write
 
 jobs:
+  preflight:
+    name: Preflight: diagnostics and test builds
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Environment / file diagnostics
+        run: |
+          set -euxo pipefail
+          echo "Runner: $RUNNER_OS"
+          echo "GitHub actor: $GITHUB_ACTOR"
+          docker --version || true
+          docker buildx version || true
+          node --version || true
+          npm --version || true
+          echo "---- repo contents ----"
+          ls -la
+          echo "---- local-backend contents ----"
+          ls -la local-backend || true
+          echo "---- frontend contents ----"
+          ls -la frontend || true
+          echo "---- Dockerfile (backend) ----"
+          sed -n '1,160p' local-backend/Dockerfile || true
+          echo "---- Dockerfile (frontend) ----"
+          sed -n '1,160p' frontend/Dockerfile.prod || true
+
+      - name: Try backend build (no push)
+        run: |
+          set -euxo pipefail
+          DOCKER_BUILDKIT=1 docker build --progress=plain -f local-backend/Dockerfile -t test-backend:ci local-backend
+
+      - name: Try frontend build (no push)
+        run: |
+          set -euxo pipefail
+          DOCKER_BUILDKIT=1 docker build --progress=plain -f frontend/Dockerfile.prod -t test-frontend:ci frontend
+
   build-and-push:
     runs-on: ubuntu-latest
     env:
@@ -19,18 +56,23 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Log in to GitHub Container Registry
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+        run: |
+          set -euxo pipefail
+          echo "Logging into GHCR as ${{ github.actor }}"
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
       - name: Build and push backend image
         run: |
-          docker build -f local-backend/Dockerfile -t ghcr.io/${{ github.repository_owner }}/wellness-backend:${IMAGE_TAG} local-backend
+          set -euxo pipefail
+          DOCKER_BUILDKIT=1 docker build --progress=plain -f local-backend/Dockerfile -t ghcr.io/${{ github.repository_owner }}/wellness-backend:${IMAGE_TAG} local-backend
           docker tag ghcr.io/${{ github.repository_owner }}/wellness-backend:${IMAGE_TAG} ghcr.io/${{ github.repository_owner }}/wellness-backend:latest
           docker push ghcr.io/${{ github.repository_owner }}/wellness-backend:${IMAGE_TAG}
           docker push ghcr.io/${{ github.repository_owner }}/wellness-backend:latest
 
       - name: Build and push frontend-prod image
         run: |
-          docker build -f frontend/Dockerfile.prod -t ghcr.io/${{ github.repository_owner }}/wellness-frontend:${IMAGE_TAG} frontend
+          set -euxo pipefail
+          DOCKER_BUILDKIT=1 docker build --progress=plain -f frontend/Dockerfile.prod -t ghcr.io/${{ github.repository_owner }}/wellness-frontend:${IMAGE_TAG} frontend
           docker tag ghcr.io/${{ github.repository_owner }}/wellness-frontend:${IMAGE_TAG} ghcr.io/${{ github.repository_owner }}/wellness-frontend:latest
           docker push ghcr.io/${{ github.repository_owner }}/wellness-frontend:${IMAGE_TAG}
           docker push ghcr.io/${{ github.repository_owner }}/wellness-frontend:latest
